@@ -1,4 +1,4 @@
-很簡單，核心就是**每次對話開始時給 AI 一個固定的啟動指令**。
+核心是**每次對話開始先對齊知識庫，確認沒問題再動 code，commit 前強制同步狀態**。
 
 ---
 
@@ -9,9 +9,9 @@ VS Code Chat 選 **Agent**（不是 Ask）
 
 ---
 
-### 第二步：固定的開場白
+### 第二步：啟動並對齊狀態
 
-每次開新對話，貼這段：
+每次開新對話，貼這段（或用 `/startup`，見下方）：
 
 ```
 請先讀：
@@ -24,25 +24,63 @@ VS Code Chat 選 **Agent**（不是 Ask）
 
 ---
 
-### 第三步：下任務
+### 第三步：確認知識庫是否需要更新
 
-AI 對齊狀態後，你直接說：
+**在下任務之前**，請 Agent 先核對相關文件：
 
 ```
-繼續 exec-plans/002-vlm-model-bridge.md
+請先確認 .docs/product-specs/、architecture.md、.docs/api.md
+是否與今天要做的任務一致，有落差先告訴我。
 ```
-或
-```
-實作 product-specs/new-user-onboarding.md 的第一階段
-```
+
+若有落差，**先更新 `.docs/` 對應檔案**，再繼續。
 
 ---
 
-### 第四步：任務結束後要求更新
+### 第四步：寫 exec-plan 並審核
+
+Agent 確認知識庫後，產生執行計畫：
 
 ```
-完成了，請更新 PLAN.md 和 .docs/context.md
+請依據剛才確認的內容，建立 exec-plans/XXX.md
 ```
+
+exec-plan 結構建議**拆成兩段**：
+
+```markdown
+## 文件變更（若有）
+- 更新 .docs/architecture.md：新增 XXX 模組
+- 更新 .docs/api.md：新增 /stream/reconnect endpoint
+
+## 實作步驟
+1. ...
+2. ...
+```
+
+**你審核 exec-plan 後**，再讓 Agent 執行。
+
+---
+
+### 第五步：執行實作
+
+```
+exec-plans/XXX.md 確認沒問題，開始執行。
+```
+
+Agent 寫 `src/` + `tests/`，依照 exec-plan 逐步進行。
+
+---
+
+### 第六步：commit 前強制更新（必做）
+
+實作完成後，commit 之前：
+
+```
+完成了，請執行 commit 前 checklist：
+更新 PLAN.md、.docs/context.md，並把 exec-plans/XXX.md 移入 done/
+```
+
+或直接把這條寫進 `AGENTS.md`，讓 Agent 自動執行，不需要你提醒（見下方）。
 
 ---
 
@@ -62,6 +100,19 @@ description: "啟動開發 session，對齊專案狀態"
 
 ---
 
+## 在 AGENTS.md 設定 Commit 前 Checklist（推薦）
+
+把以下內容加入 `AGENTS.md`，Agent 每次完成任務後會自動執行，不需要你提醒：
+
+```markdown
+## Commit 前必做
+- [ ] PLAN.md 進度已更新
+- [ ] .docs/context.md 已更新（下次焦點、已知問題）
+- [ ] exec-plans/XXX.md 移入 done/
+```
+
+---
+
 ## 整個循環
 
 ```
@@ -69,17 +120,20 @@ description: "啟動開發 session，對齊專案狀態"
     ↓
 /startup（AI 讀 AGENTS.md + PLAN.md + context.md）
     ↓
-你說今天要做什麼
+確認 spec / architecture / api 是否需要更新
+有落差 → 先更新 .docs/ 對應檔案
     ↓
-AI 讀對應的 exec-plans/ 或 product-specs/
+AI 寫 exec-plans/XXX.md（文件變更 + 實作步驟兩段）
+你審核後再執行
     ↓
-執行任務
+AI 執行實作（寫 src/ + tests/）
     ↓
-你說「完成，更新狀態」
+commit 前強制更新：
+  - PLAN.md（進度）
+  - .docs/context.md（當前焦點）
+  - exec-plans/XXX.md 移入 done/
     ↓
-AI 更新 PLAN.md + context.md
-    ↓
-明天重複
+git commit → 明天重複
 ```
 ---
 ## 分工對照表
